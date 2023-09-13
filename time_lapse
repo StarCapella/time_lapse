@@ -1,0 +1,67 @@
+var CaspianSea = ee.Geometry.Polygon(
+  [[
+  [45.21068495995169,35.721192338067695],
+  [56.59252089745169,35.721192338067695],
+  [56.59252089745169,47.76267135999343],
+  [45.21068495995169,47.76267135999343],
+  [45.21068495995169,35.721192338067695]
+  ]]
+);
+//var collection1985 = landsat5.filterDate('1985-08-01','1985-09-30').filterBounds(CaspianSea).filterMetadata('CLOUD_COVER','less_than',50);
+//Map.centerObject(CaspianSea);
+//Map.addLayer(collection1985, trueColor432Vis, 'Landsat5 Image');
+/*var collection2000 = landsat7.filterDate('2000-05-01','2000-09-30').filterBounds(CaspianSea).filterMetadata('CLOUD_COVER','less_than',50);
+Map.centerObject(CaspianSea);
+var trueColor321 = collection2000.select(['B3', 'B2', 'B1']);
+var trueColor321Vis = {};
+Map.addLayer(collection2000, trueColor321Vis, 'Landsat Image');*/
+
+// This is image from MODIS
+var dataset = ee.ImageCollection('MODIS/061/MOD09A1')
+                  .filterDate('2023-08-01', '2023-08-15')
+                  .filterBounds(CaspianSea);
+
+// Function to mask out cloudy pixels
+var maskClouds = function(image) {
+  var qa = image.select('QA');
+  var cloudMask = qa.bitwiseAnd(1 << 10).eq(0); // Clear sky bit
+  return image.updateMask(cloudMask);
+};
+
+// Apply cloud mask to the dataset
+var cloudFreeDataset = dataset.map(maskClouds);
+
+// Now can proceed with further analysis using the cloud-free dataset
+
+var trueColor =
+    dataset.select(['sur_refl_b01', 'sur_refl_b04', 'sur_refl_b03']);
+var trueColorVis = {
+  min: -100.0,
+  max: 3000.0,
+};
+
+// Clip to the region of interest
+var clippedTrueColor = trueColor.mean().clip(CaspianSea);
+
+Map.centerObject(CaspianSea);
+Map.addLayer(clippedTrueColor, trueColorVis, 'True Color');
+
+// Export the clipped image
+Export.image.toDrive({
+  image: clippedTrueColor,
+  description: 'MODIS_2023_CaspianSea',
+  folder: 'Summer', // Change to your desired folder
+  scale: 500, // Change to the desired scale
+  region: CaspianSea,
+});
+
+/*
+var collection2015 = landsat9.filterDate('2022-08-01','2022-08-31').filterBounds(CaspianSea).filterMetadata('CLOUD_COVER','less_than',35).select(['B4', 'B3', 'B2']);
+Map.centerObject(CaspianSea);
+var trueColor432Vis = {
+  min: 0.0,
+  max: 30000.0,
+};
+
+Map.addLayer(collection2015, trueColor432Vis, 'Landsat Image');
+*/
